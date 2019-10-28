@@ -55,3 +55,4 @@
       debug:
         msg: "An item: {{ item }}"
       with_items:  "{{ ec2_instances }}" 
+      #comment: end of playbook
