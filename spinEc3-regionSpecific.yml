@@ -1,0 +1,57 @@
+---
+
+- name: run the playbook tasks on the localhost
+  hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars_files: 
+   - accs_k.yml
+  vars:
+    ec2_tags:
+      Name: "{{ tagName }}"
+
+  tasks:
+    - name: print out the hostname of target
+      command: hostname
+
+    - name: create ec2 instance
+      ec2:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        group: "{{ security_group }}"
+        instance_type: "{{ instance_type }}"
+        instance_profile_name: "AWS_SplunkAccessRole"
+        instance_tags: '{"Name":"{{ tagName }}"}'
+        image: "{{ image }}"
+        wait: true 
+        region: "{{ region }}"
+        keypair: "{{ keypair }}"
+        count: "{{count}}"
+        zone: "{{az}}"
+      register: ec2
+    - name: Find EC2 Facts
+      ec2_remote_facts:
+        region: "{{ region }}"
+        filters:
+          "tag:Name": "{{ tagName }}"
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+      register: ec2_facts
+
+    - name: Display Items
+      debug:
+        msg: "An EC2 fact is : {{ ec2_facts  }}"
+
+    - name: Filter EC2 instances
+      set_fact:
+        ec2_instances: |
+          {% set instances = [] %}
+          {% for item in ec2_facts.instances if item.tags == ec2_tags and item.state == 'running' -%}
+            {{ instances.append(item.public_dns_name) }}
+            {{ instances.append(item.private_ip_address) }}
+          {%- endfor %}
+          {{ instances }}
+    - name: Display Items
+      debug:
+        msg: "An item: {{ item }}"
+      with_items:  "{{ ec2_instances }}" 
